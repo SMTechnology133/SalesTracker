@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Market Tracker (Malawi)</title>
+    <!-- Load Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for a modern, clean look */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7fafc;
+        }
+        .app-container {
+            max-width: 1000px;
+            min-height: 100vh;
+        }
+        .tab-button.active {
+            background-color: #48bb78; /* Green-600 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+    <div id="app-container" class="app-container mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold text-gray-800">Local Market Tracker</h1>
+            <p class="text-gray-500">Offline-First Inventory & Sales Management</p>
+            <p id="business-name-display" class="mt-1 text-xl font-semibold text-green-600 cursor-pointer" onclick="editBusinessName()">
+                [Tap to set Business Name]
+            </p>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <div class="flex flex-wrap justify-center space-x-2 md:space-x-4 mb-8 p-1 bg-white rounded-xl shadow-inner">
+            <button class="tab-button active px-4 py-2 rounded-lg transition duration-150 ease-in-out text-sm md:text-base" data-tab="dashboard">Dashboard</button>
+            <button class="tab-button px-4 py-2 rounded-lg transition duration-150 ease-in-out text-sm md:text-base" data-tab="inventory">Inventory</button>
+            <button class="tab-button px-4 py-2 rounded-lg transition duration-150 ease-in-out text-sm md:text-base" data-tab="sales">Record Sale</button>
+            <button class="tab-button px-4 py-2 rounded-lg transition duration-150 ease-in-out text-sm md:text-base bg-yellow-500 text-white hover:bg-yellow-600" onclick="exportDataToWhatsApp()">Export to WhatsApp</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div id="dashboard-content" class="tab-content">
+            <h2 class="text-2xl font-bold text-gray-700 mb-4">Summary Dashboard</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="card p-6 text-center">
+                    <p class="text-lg text-gray-500">Total Items in Stock</p>
+                    <p id="total-inventory" class="text-4xl font-extrabold text-blue-600 mt-1">0</p>
+                </div>
+                <div class="card p-6 text-center">
+                    <p class="text-lg text-gray-500">Sales Value (Today)</p>
+                    <p id="daily-sales" class="text-4xl font-extrabold text-green-600 mt-1">MK 0</p>
+                </div>
+                <div class="card p-6 text-center">
+                    <p class="text-lg text-gray-500">Total Profit Est.</p>
+                    <p id="total-profit" class="text-4xl font-extrabold text-red-600 mt-1">MK 0</p>
+                </div>
+            </div>
+
+            <div class="mt-8 card p-6">
+                <h3 class="text-xl font-semibold mb-4 text-gray-700">Recent Transactions</h3>
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-transactions-list" class="bg-white divide-y divide-gray-200">
+                        <!-- Transactions will be inserted here -->
+                        <tr><td colspan="4" class="text-center py-4 text-gray-500">No sales recorded yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="inventory-content" class="tab-content hidden">
+            <h2 class="text-2xl font-bold text-gray-700 mb-4">Manage Inventory</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Add/Update Form -->
+                <div class="lg:col-span-1 card p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-700">Add New Item</h3>
+                    <form id="inventory-form" class="space-y-4">
+                        <div>
+                            <label for="item-name" class="block text-sm font-medium text-gray-700">Item Name</label>
+                            <input type="text" id="item-name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-green-500 focus:border-green-500">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="unit-cost" class="block text-sm font-medium text-gray-700">Unit Cost (MK)</label>
+                                <input type="number" id="unit-cost" required min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-green-500 focus:border-green-500">
+                            </div>
+                            <div>
+                                <label for="unit-price" class="block text-sm font-medium text-gray-700">Unit Price (MK)</label>
+                                <input type="number" id="unit-price" required min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-green-500 focus:border-green-500">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="initial-stock" class="block text-sm font-medium text-gray-700">Initial Stock</label>
+                            <input type="number" id="initial-stock" required min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-green-500 focus:border-green-500">
+                        </div>
+                        <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out">
+                            Add Item
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Inventory List -->
+                <div class="lg:col-span-2 card p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-700">Current Stock Levels</h3>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Price (MK)</th>
+                                <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Stock</th>
+                                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-list" class="bg-white divide-y divide-gray-200">
+                            <!-- Inventory items will be inserted here -->
+                            <tr><td colspan="4" class="text-center py-4 text-gray-500">No inventory items added yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="sales-content" class="tab-content hidden">
+            <h2 class="text-2xl font-bold text-gray-700 mb-4">Record a Sale</h2>
+            <div class="card p-6 max-w-lg mx-auto">
+                <form id="sale-form" class="space-y-4">
+                    <div>
+                        <label for="sale-item-id" class="block text-sm font-medium text-gray-700">Select Item</label>
+                        <select id="sale-item-id" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-green-500 focus:border-green-500">
+                            <option value="">-- Select an Inventory Item --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="sale-quantity" class="block text-sm font-medium text-gray-700">Quantity Sold</label>
+                        <input type="number" id="sale-quantity" required min="1" value="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-green-500 focus:border-green-500">
+                        <p id="current-stock-info" class="text-xs text-gray-500 mt-1"></p>
+                    </div>
+                    <div>
+                        <label for="sale-amount" class="block text-sm font-medium text-gray-700">Total Sale Amount (MK)</label>
+                        <input type="number" id="sale-amount" required min="0" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div>
+                        <label for="payment-method" class="block text-sm font-medium text-gray-700">Payment Method</label>
+                        <select id="payment-method" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-green-500 focus:border-green-500">
+                            <option value="Cash">Cash</option>
+                            <option value="Mpamba">TNM Mpamba</option>
+                            <option value="Airtel Money">Airtel Money</option>
+                            <option value="Card">Card</option>
+                            <option value="Credit">Credit</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out">
+                        Finalize Sale
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- System Message Box -->
+        <div id="system-message" class="fixed bottom-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-xl hidden transition-opacity duration-300" role="alert">
+            <span id="message-content"></span>
+        </div>
+    </div>
+
+    <script>
+        // --- CONSTANTS AND INITIALIZATION ---
+        const DB_NAME = 'MalawiMarketDB';
+        const DB_VERSION = 1;
+        const INVENTORY_STORE = 'inventory';
+        const TRANSACTIONS_STORE = 'transactions';
+        const BUSINESS_NAME_KEY = 'businessName';
+
+        let db;
+        let inventoryCache = [];
+
+        // --- UTILITY FUNCTIONS ---
+
+        /**
+         * Displays a transient system message (error or success).
+         * @param {string} message - The message content.
+         * @param {string} type - 'success' or 'error'.
+         */
+        function showMessage(message, type = 'error') {
+            const msgBox = document.getElementById('system-message');
+            const msgContent = document.getElementById('message-content');
+
+            msgBox.classList.remove('bg-red-500', 'bg-green-500');
+            msgBox.classList.add(type === 'success' ? 'bg-green-500' : 'bg-red-500');
+
+            msgContent.textContent = message;
+            msgBox.classList.remove('hidden');
+            msgBox.classList.add('opacity-100');
+
+            setTimeout(() => {
+                msgBox.classList.remove('opacity-100');
+                msgBox.classList.add('opacity-0');
+                setTimeout(() => msgBox.classList.add('hidden'), 300);
+            }, 5000);
+        }
+
+        // --- INDEXEDDB HANDLERS ---
+
+        /**
+         * Initializes and opens the IndexedDB database.
+         * @returns {Promise<IDBDatabase>} The database instance.
+         */
+        function openDatabase() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onupgradeneeded = (event) => {
+                    db = event.target.result;
+                    console.log('Database upgrade running...');
+
+                    if (!db.objectStoreNames.contains(INVENTORY_STORE)) {
+                        const inventoryStore = db.createObjectStore(INVENTORY_STORE, { keyPath: 'id', autoIncrement: true });
+                        inventoryStore.createIndex('name', 'name', { unique: true });
+                        inventoryStore.createIndex('stockQuantity', 'stockQuantity', { unique: false });
+                    }
+
+                    if (!db.objectStoreNames.contains(TRANSACTIONS_STORE)) {
+                        const transactionsStore = db.createObjectStore(TRANSACTIONS_STORE, { keyPath: 'id', autoIncrement: true });
+                        transactionsStore.createIndex('timestamp', 'timestamp', { unique: false });
+                        transactionsStore.createIndex('itemId', 'itemId', { unique: false });
+                    }
+                };
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    console.log('Database opened successfully.');
+                    resolve(db);
+                };
+
+                request.onerror = (event) => {
+                    console.error('Database error:', event.target.error);
+                    showMessage(`Database error: ${event.target.error.message}. Local storage may be unavailable.`);
+                    reject(event.target.error);
+                };
+            });
+        }
+
+        /**
+         * Performs a CRUD operation (Add/Put) on an object store.
+         * @param {string} storeName - The name of the object store.
+         * @param {string} mode - 'readonly' or 'readwrite'.
+         * @param {function(IDBObjectStore): void} operation - The function performing the operation.
+         * @returns {Promise<any>} The result of the operation.
+         */
+        function performTransaction(storeName, mode, operation) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, mode);
+                const store = transaction.objectStore(storeName);
+                const request = operation(store);
+
+                request.onsuccess = (event) => {
+                    resolve(event.target.result);
+                };
+
+                request.onerror = (event) => {
+                    console.error(`Transaction failed on ${storeName}:`, event.target.error);
+                    showMessage(`Operation failed: ${event.target.error.message}`);
+                    reject(event.target.error);
+                };
+            });
+        }
+
+        /**
+         * Retrieves all records from an object store.
+         * @param {string} storeName - The name of the object store.
+         * @returns {Promise<Array<any>>} Array of all records.
+         */
+        function getAll(storeName) {
+            return performTransaction(storeName, 'readonly', (store) => store.getAll());
+        }
+
+        /**
+         * Retrieves a single record by ID.
+         * @param {string} storeName - The name of the object store.
+         * @param {number} id - The record key.
+         * @returns {Promise<any>} The record object.
+         */
+        function getById(storeName, id) {
+            return performTransaction(storeName, 'readonly', (store) => store.get(id));
+        }
+
+        // --- APPLICATION LOGIC ---
+
+        /**
+         * Handles the inventory form submission (Add/Update).
+         */
+        async function handleInventoryForm(event) {
+            event.preventDefault();
+            const name = document.getElementById('item-name').value.trim();
+            const unitCost = parseFloat(document.getElementById('unit-cost').value);
+            const unitPrice = parseFloat(document.getElementById('unit-price').value);
+            const initialStock = parseInt(document.getElementById('initial-stock').value);
+
+            if (!name || isNaN(unitCost) || isNaN(unitPrice) || isNaN(initialStock)) {
+                showMessage("Please fill out all fields correctly.");
+                return;
+            }
+
+            const newItem = {
+                name,
+                unitCost: unitCost.toFixed(2),
+                unitPrice: unitPrice.toFixed(2),
+                stockQuantity: initialStock,
+                lastUpdated: new Date().toISOString()
+            };
+
+            try {
+                // Using add() for new entries
+                await performTransaction(INVENTORY_STORE, 'readwrite', (store) => store.add(newItem));
+                showMessage(`Item "${name}" added successfully.`, 'success');
+                document.getElementById('inventory-form').reset();
+                await refreshAllData();
+            } catch (error) {
+                // The most common failure is a duplicate index key (e.g., name index is unique)
+                if (error.name === 'ConstraintError') {
+                    showMessage(`Error: An item named "${name}" already exists.`);
+                } else {
+                    showMessage('Failed to add item. Check console for details.');
+                }
+            }
+        }
+
+        /**
+         * Handles the sale form submission.
+         */
+        async function handleSaleForm(event) {
+            event.preventDefault();
+            const itemId = parseInt(document.getElementById('sale-item-id').value);
+            const quantitySold = parseInt(document.getElementById('sale-quantity').value);
+            const saleAmount = parseFloat(document.getElementById('sale-amount').value);
+            const paymentMethod = document.getElementById('payment-method').value;
+
+            if (isNaN(itemId) || isNaN(quantitySold) || isNaN(saleAmount)) {
+                showMessage("Please ensure all sale details are correct.");
+                return;
+            }
+
+            try {
+                // 1. Get the current inventory item
+                const item = await getById(INVENTORY_STORE, itemId);
+                if (!item) {
+                    showMessage("Selected item not found in inventory.");
+                    return;
+                }
+
+                if (item.stockQuantity < quantitySold) {
+                    showMessage(`Insufficient stock! Only ${item.stockQuantity} remaining.`);
+                    return;
+                }
+
+                // 2. Record the transaction
+                const transaction = {
+                    itemId,
+                    itemName: item.name,
+                    quantitySold,
+                    saleAmount: saleAmount.toFixed(2),
+                    costAmount: (parseFloat(item.unitCost) * quantitySold).toFixed(2),
+                    paymentMethod,
+                    timestamp: new Date().toISOString()
+                };
+                await performTransaction(TRANSACTIONS_STORE, 'readwrite', (store) => store.add(transaction));
+
+                // 3. Update the inventory stock
+                item.stockQuantity -= quantitySold;
+                item.lastUpdated = new Date().toISOString();
+                await performTransaction(INVENTORY_STORE, 'readwrite', (store) => store.put(item)); // Use put for update
+
+                showMessage(`Sale of ${quantitySold} x ${item.name} recorded successfully!`, 'success');
+                document.getElementById('sale-form').reset();
+                await refreshAllData(); // Update all views
+            } catch (error) {
+                showMessage('Failed to record sale. Check console for details.');
+                console.error('Sale error:', error);
+            }
+        }
+
+        /**
+         * Renders the Inventory List table.
+         * @param {Array<object>} items - The inventory items.
+         */
+        function renderInventoryList(items) {
+            const listElement = document.getElementById('inventory-list');
+            listElement.innerHTML = '';
+            inventoryCache = items; // Update cache
+
+            if (items.length === 0) {
+                listElement.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">No inventory items added yet.</td></tr>';
+                return;
+            }
+
+            items.forEach(item => {
+                const row = document.createElement('tr');
+                const stockColor = item.stockQuantity < 5 ? 'text-red-500 font-bold' : 'text-green-600';
+
+                row.innerHTML = `
+                    <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${item.name}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">MK ${parseFloat(item.unitPrice).toFixed(2)}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-center ${stockColor}">${item.stockQuantity}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="deleteInventoryItem(${item.id})" class="text-red-600 hover:text-red-900 ml-2">Delete</button>
+                    </td>
+                `;
+                listElement.appendChild(row);
+            });
+        }
+
+        /**
+         * Renders the Dashboard summary and recent transactions.
+         * @param {Array<object>} transactions - The transaction records.
+         * @param {Array<object>} items - The inventory items.
+         */
+        function renderDashboard(transactions, items) {
+            const today = new Date().toISOString().substring(0, 10);
+            let dailySalesValue = 0;
+            let totalProfitValue = 0;
+            let totalStock = 0;
+
+            const todayTransactions = transactions.filter(t => t.timestamp.substring(0, 10) === today);
+
+            transactions.forEach(t => {
+                const saleAmount = parseFloat(t.saleAmount);
+                const costAmount = parseFloat(t.costAmount);
+                totalProfitValue +-= (saleAmount - costAmount);
+                if (t.timestamp.substring(0, 10) === today) {
+                    dailySalesValue +-= saleAmount;
+                }
+            });
+
+            items.forEach(item => {
+                totalStock +-= item.stockQuantity;
+            });
+
+            document.getElementById('total-inventory').textContent = totalStock;
+            document.getElementById('daily-sales').textContent = `MK ${dailySalesValue.toFixed(2)}`;
+            document.getElementById('total-profit').textContent = `MK ${totalProfitValue.toFixed(2)}`;
+
+            const listElement = document.getElementById('recent-transactions-list');
+            listElement.innerHTML = '';
+
+            if (todayTransactions.length === 0) {
+                listElement.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">No sales recorded today.</td></tr>';
+                return;
+            }
+
+            todayTransactions.slice(0, 5).forEach(t => {
+                const row = document.createElement('tr');
+                const saleTime = new Date(t.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                row.innerHTML = `
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900">${t.itemName}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${t.quantitySold}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-green-600 font-medium">MK ${parseFloat(t.saleAmount).toFixed(2)}</td>
+                    <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">${saleTime}</td>
+                `;
+                listElement.appendChild(row);
+            });
+        }
+
+        /**
+         * Populates the item selection dropdown on the Record Sale tab.
+         */
+        function populateSaleDropdown(items) {
+            const select = document.getElementById('sale-item-id');
+            const info = document.getElementById('current-stock-info');
+            select.innerHTML = '<option value="">-- Select an Inventory Item --</option>';
+            info.textContent = 'Stock: N/A';
+
+            items.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = `${item.name} (Stock: ${item.stockQuantity}, Price: MK ${parseFloat(item.unitPrice).toFixed(2)})`;
+                select.appendChild(option);
+            });
+
+            select.onchange = () => {
+                const selectedItem = items.find(item => item.id == select.value);
+                if (selectedItem) {
+                    info.textContent = `Stock: ${selectedItem.stockQuantity}`;
+                } else {
+                    info.textContent = 'Stock: N/A';
+                }
+            };
+        }
+
+        /**
+         * Fetches all data from IndexedDB and re-renders all views.
+         */
+        async function refreshAllData() {
+            try {
+                const inventory = await getAll(INVENTORY_STORE);
+                const transactions = await getAll(TRANSACTIONS_STORE);
+
+                // Sort transactions by timestamp (most recent first)
+                transactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                renderInventoryList(inventory);
+                populateSaleDropdown(inventory);
+                renderDashboard(transactions, inventory);
+            } catch (error) {
+                showMessage("Could not load data. Please ensure storage is available.");
+                console.error('Refresh error:', error);
+            }
+        }
+
+        /**
+         * Deletes an item from the inventory.
+         * @param {number} id - The ID of the item to delete.
+         */
+        async function deleteInventoryItem(id) {
+            if (!confirm("Are you sure you want to delete this inventory item? This cannot be undone.")) {
+                return;
+            }
+            try {
+                await performTransaction(INVENTORY_STORE, 'readwrite', (store) => store.delete(id));
+                showMessage("Item deleted successfully.", 'success');
+                await refreshAllData();
+            } catch (error) {
+                showMessage("Failed to delete item.");
+                console.error('Delete error:', error);
+            }
+        }
+
+        /**
+         * Generates a text summary and shares it via WhatsApp link.
+         */
+        async function exportDataToWhatsApp() {
+            const businessName = localStorage.getItem(BUSINESS_NAME_KEY) || 'My Local Business';
+            const transactions = await getAll(TRANSACTIONS_STORE);
+            const inventory = await getAll(INVENTORY_STORE);
+
+            const today = new Date();
+            const todayStr = today.toLocaleDateString('en-US');
+
+            // 1. Calculate Summary Metrics
+            let totalSales = 0;
+            let totalCost = 0;
+            let totalProfit = 0;
+            let dailySales = 0;
+            let dailyProfit = 0;
+
+            transactions.forEach(t => {
+                const sale = parseFloat(t.saleAmount);
+                const cost = parseFloat(t.costAmount);
+                totalSales +-= sale;
+                totalCost +-= cost;
+
+                if (new Date(t.timestamp).toLocaleDateString('en-US') === todayStr) {
+                    dailySales +-= sale;
+                    dailyProfit +-= (sale - cost);
+                }
+                totalProfit +-= (sale - cost);
+            });
+
+            // 2. Format Inventory Status
+            const lowStockItems = inventory
+                .filter(item => item.stockQuantity < 5 && item.stockQuantity > 0)
+                .map(item => `- ${item.name}: ${item.stockQuantity} remaining`)
+                .join('+AFw-n');
+
+            const outOfStockItems = inventory
+                .filter(item => item.stockQuantity === 0)
+                .map(item => `- ${item.name}`)
+                .join('+AFw-n');
+
+            // 3. Construct the Export Message
+            let exportText = `*${businessName} - Business Report (${todayStr})*+AFw-n+AFw-n`;
+
+            exportText +-= `--- TODAY'S PERFORMANCE ---+AFw-n`;
+            exportText +-= `+2D3ctQ Total Sales (Today): MK ${dailySales.toFixed(2)}+AFw-n`;
+            exportText +-= `+2D3cyA Estimated Profit (Today): MK ${dailyProfit.toFixed(2)}+AFw-n`;
+            exportText +-= `---------------------------------+AFw-n+AFw-n`;
+
+            exportText +-= `--- LIFETIME OVERVIEW ---+AFw-n`;
+            exportText +-= `+2D3csA Grand Total Sales: MK ${totalSales.toFixed(2)}+AFw-n`;
+            exportText +-= `+2D3cuA Grand Total Profit: MK ${totalProfit.toFixed(2)}+AFw-n`;
+            exportText +-= `---------------------------------+AFw-n+AFw-n`;
+
+            exportText +-= `--- INVENTORY ALERT ---+AFw-n`;
+            exportText +-= `+2D3c5g Total Items in Stock: ${inventory.reduce((sum, item) => sum +- item.stockQuantity, 0)}+AFw-n+AFw-n`;
+
+            if (lowStockItems) {
+                exportText +-= `+JqD+Dw *Low Stock (<5 items):*+AFw-n${lowStockItems}+AFw-n+AFw-n`;
+            }
+            if (outOfStockItems) {
+                exportText +-= `+J0w *Out of Stock:* +AFw-n${outOfStockItems}+AFw-n+AFw-n`;
+            }
+
+            exportText +-= `Report generated by Offline Market Tracker.`;
+
+            // 4. Open WhatsApp Link
+            const encodedText = encodeURIComponent(exportText);
+
+            // Use window.location for sharing; standard protocol for mobile apps
+            const whatsappUrl = `whatsapp://send?text=${encodedText}`;
+
+            // Provide fallback for desktop
+            if (navigator.userAgent.match(/android|iphone|ipad|ipod/i)) {
+                window.location.href = whatsappUrl;
+            } else {
+                // Desktop Web/Fallback - encourages copying and pasting
+                const webWhatsappUrl = `https://web.whatsapp.com/send?text=${encodedText}`;
+                if (confirm("Tap 'OK' to open WhatsApp Web to share your report. You may need to copy the text manually if the app does not open.")) {
+                    window.open(webWhatsappUrl, '_blank');
+                }
+            }
+
+            showMessage("Report data formatted for WhatsApp sharing.", 'success');
+        }
+
+        // --- LOCAL STORAGE & UI MANAGEMENT ---
+
+        /**
+         * Sets/updates the business name from localStorage.
+         */
+        function loadBusinessName() {
+            const name = localStorage.getItem(BUSINESS_NAME_KEY);
+            const display = document.getElementById('business-name-display');
+            if (name) {
+                display.textContent = name;
+            } else {
+                display.textContent = '[Tap to set Business Name]';
+            }
+        }
+
+        /**
+         * Prompts user to edit the business name.
+         */
+        function editBusinessName() {
+            const currentName = localStorage.getItem(BUSINESS_NAME_KEY) || '';
+            const newName = prompt("Enter your business name:", currentName);
+            if (newName && newName.trim() !== '') {
+                localStorage.setItem(BUSINESS_NAME_KEY, newName.trim());
+                loadBusinessName();
+                showMessage("Business name updated!", 'success');
+            } else if (newName !== null) {
+                showMessage("Business name cannot be empty.");
+            }
+        }
+
+        /**
+         * Handles tab switching logic.
+         */
+        function setupTabs() {
+            const tabs = document.querySelectorAll('.tab-button');
+            const contents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const target = tab.getAttribute('data-tab');
+
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+
+                    contents.forEach(content => {
+                        if (content.id === `${target}-content`) {
+                            content.classList.remove('hidden');
+                        } else {
+                            content.classList.add('hidden');
+                        }
+                    });
+                });
+            });
+        }
+
+
+        // --- ENTRY POINT ---
+        window.onload = async () => {
+            // Set up UI components
+            setupTabs();
+            loadBusinessName();
+
+            // Set up form handlers
+            document.getElementById('inventory-form').addEventListener('submit', handleInventoryForm);
+            document.getElementById('sale-form').addEventListener('submit', handleSaleForm);
+
+            try {
+                // Initialize Database
+                await openDatabase();
+
+                // Initial data load
+                await refreshAllData();
+            } catch (e) {
+                // Error message already shown in openDatabase
+                console.error("Application failed to initialize:", e);
+            }
+        };
+
+    </script>
+</body>
+</html>
